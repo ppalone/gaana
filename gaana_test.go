@@ -2,6 +2,7 @@ package gaana_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/ppalone/gaana"
@@ -124,4 +125,26 @@ func Test_CompareSongDetail(t *testing.T) {
 		assert.Equal(t, detailById.Duration, detailBySeoKey.Duration)
 		assert.ElementsMatch(t, detailById.StreamURLs, detailBySeoKey.StreamURLs)
 	})
+}
+
+func Test_StreamURLs(t *testing.T) {
+	c := gaana.NewClient(nil)
+
+	ids := []int{
+		3200230,
+		59685660,
+		73865153,
+	}
+	for _, id := range ids {
+		detail, err := c.GetSongDetailByTrackId(context.Background(), id)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, detail)
+
+		for _, stream := range detail.StreamURLs {
+			assert.NotEmpty(t, stream.Quality)
+			assert.NotEmpty(t, stream.URL)
+			assert.True(t, strings.HasPrefix(stream.URL, "https://"))
+			assert.True(t, strings.Contains(stream.URL, ".m3u8"))
+		}
+	}
 }

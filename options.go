@@ -5,40 +5,34 @@ import "strconv"
 // Search Options.
 type searchOptions struct {
 	// search query
-	keyword string
+	query string
 
-	// page will always start from 0
-	page int
-
-	// default to "IN" for now
-	country string
+	// start index
+	// always a multiple of 50 (Example 0, 50, 100 ...)
+	// doesn't work as expected, API returns same results
+	startIndex int
 }
 
 type SearchOption func(opts *searchOptions)
 
 func defaultSearchOptions() *searchOptions {
 	return &searchOptions{
-		keyword: "",
-		page:    0,
-		country: "IN",
+		query:      "",
+		startIndex: 0,
 	}
 }
 
-func WithSearchPage(page int) SearchOption {
+func WithSearchStartIndex(startIndex int) SearchOption {
 	return func(opts *searchOptions) {
-		opts.page = page
+		opts.startIndex = startIndex
 	}
 }
 
 func (opts *searchOptions) build() map[string]string {
 	m := make(map[string]string)
 
-	m["keyword"] = opts.keyword
-	m["page"] = strconv.Itoa(opts.page)
-	m["country"] = opts.country
-
-	// "type" wil be same for song/artist/album search
-	m["type"] = "search"
+	m["query"] = opts.query
+	m["startIndex"] = strconv.Itoa(opts.startIndex)
 
 	return m
 }

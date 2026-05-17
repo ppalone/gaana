@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
 const (
-	apiURL = "https://gaana.com/apiv2"
+	baseAPI   = "https://api.gaana.com/"
+	searchAPI = "https://gsearch.gaana.com/vichitih/go/v2/"
 )
 
 // Gaana Client.
@@ -33,12 +35,12 @@ func (c *Client) SearchSongs(ctx context.Context, q string, opts ...SearchOption
 	for _, opt := range opts {
 		opt(options)
 	}
-	options.keyword = strings.TrimSpace(q)
+	options.query = strings.TrimSpace(q)
 
 	params := options.build()
-	params["secType"] = "track" // search for tracks/songs
+	params["include"] = "track" // search for tracks/songs
 
-	req, err := makeRequest(ctx, params)
+	req, err := makeRequest(ctx, http.MethodGet, searchAPI, params)
 	if err != nil {
 		return SearchSongsResult{}, err
 	}
@@ -50,19 +52,68 @@ func (c *Client) SearchSongs(ctx context.Context, q string, opts ...SearchOption
 	defer res.Body.Close()
 
 	apiResponse := new(searchSongsAPIResponse)
-	err = json.NewDecoder(res.Body).Decode(&apiResponse)
+	err = json.NewDecoder(res.Body).Decode(apiResponse)
 	if err != nil {
 		return SearchSongsResult{}, err
 	}
 
-	return apiResponse.toResult(options)
+	return apiResponse.toResult()
 }
 
-func makeRequest(ctx context.Context, params map[string]string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, nil)
+func (c *Client) GetSongDetailByTrackId(ctx context.Context, id int) (SongDetail, error) {
+	params := map[string]string{
+		"track_id": strconv.Itoa(id),
+	}
+	return c.getSong(ctx, params)
+}
+
+func (c *Client) GetSongDetailBySeoKey(ctx context.Context, seoKey string) (SongDetail, error) {
+	params := map[string]string{
+		"seokey": seoKey,
+	}
+	return c.getSong(ctx, params)
+}
+
+func (c *Client) getSong(ctx context.Context, params map[string]string) (SongDetail, error) {
+	// params
+	params["request_type"] = "web"
+	params["st"] = "hls"
+	params["pkc"] = "true"
+	params["type"] = "song"
+	params["subtype"] = "song_detail"
+
+	// make request
+	req, err := makeRequest(ctx, http.MethodGet, baseAPI, params)
+	if err != nil {
+		return SongDetail{}, err
+	}
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return SongDetail{}, err
+	}
+	defer res.Body.Close()
+
+	apiResponse := new(songDetailAPIResponse)
+	err = json.NewDecoder(res.Body).Decode(apiResponse)
+	if err != nil {
+		return SongDetail{}, err
+	}
+
+	return apiResponse.toSongDetail()
+}
+
+func makeRequest(ctx context.Context, requestMethod string, requestURL string, params map[string]string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, requestMethod, requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
+
+	// set headers
+	req.Header.Set("devicetype", "GaanaWebsiteApp")
+	req.Header.Set("gaanaappversion", "gaanaAndroid-8.60.1")
+	req.Header.Set("content-type", "application/x-www-form-urlencoded")
+	req.Header.Set("appversion", "V6")
 
 	// query params
 	q := &url.Values{}

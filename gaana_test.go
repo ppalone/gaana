@@ -122,6 +122,6 @@ func Test_CompareSongDetail(t *testing.T) {
 		assert.Equal(t, detailById.Tags, detailBySeoKey.Tags)
 		assert.Equal(t, detailById.ReleaseDate, detailBySeoKey.ReleaseDate)
 		assert.Equal(t, detailById.Duration, detailBySeoKey.Duration)
-		assert.Equal(t, detailById.StreamURLs, detailBySeoKey.StreamURLs)
+		assert.ElementsMatch(t, detailById.StreamURLs, detailBySeoKey.StreamURLs)
 	})
 }

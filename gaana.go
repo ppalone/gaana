@@ -120,7 +120,7 @@ func (c *Client) GetStream(ctx context.Context, stream Stream) (io.ReadCloser, e
 	defer res.Body.Close()
 
 	// the response returned is a master playlist
-	// and the master playlist as the relative URL to media playlist
+	// and the master playlist has the relative URL to media playlist
 	masterPlaylist, playlistType, err := m3u8.DecodeFrom(res.Body, true)
 	if err != nil {
 		return nil, err

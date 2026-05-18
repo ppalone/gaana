@@ -3,10 +3,14 @@ package gaana
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/Eyevinn/hls-m3u8/m3u8"
 )
 
 const (
@@ -101,6 +105,120 @@ func (c *Client) getSong(ctx context.Context, params map[string]string) (SongDet
 	}
 
 	return apiResponse.toSongDetail()
+}
+
+func (c *Client) GetStream(ctx context.Context, stream Stream) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, stream.URL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	// the response returned is a master playlist
+	// and the master playlist as the relative URL to media playlist
+	masterPlaylist, playlistType, err := m3u8.DecodeFrom(res.Body, true)
+	if err != nil {
+		return nil, err
+	}
+
+	if playlistType != m3u8.MASTER {
+		return nil, fmt.Errorf("playlist is not master")
+	}
+
+	master := masterPlaylist.(*m3u8.MasterPlaylist)
+	if len(master.Variants) == 0 {
+		return nil, fmt.Errorf("no media found in master playlist")
+	}
+
+	base, err := url.Parse(stream.URL)
+	if err != nil {
+		return nil, err
+	}
+
+	relative, err := url.Parse(master.Variants[0].URI)
+	if err != nil {
+		return nil, err
+	}
+
+	mediaPlaylistURL := base.ResolveReference(relative)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, mediaPlaylistURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// media playlist
+	mediaPlaylist, playlistType, err := m3u8.DecodeFrom(resp.Body, true)
+	if err != nil {
+		return nil, err
+	}
+
+	if playlistType != m3u8.MEDIA {
+		return nil, fmt.Errorf("playlist is not media")
+	}
+
+	// media playlist containing the segments
+	media := mediaPlaylist.(*m3u8.MediaPlaylist)
+
+	// reader, writer
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+
+		for _, seg := range media.Segments {
+			// skip nil segments
+			if seg == nil {
+				continue
+			}
+
+			segmentURL, err := mediaPlaylistURL.Parse(seg.URI)
+			if err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, segmentURL.String(), nil)
+			if err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+
+			resp, err := c.httpClient.Do(req)
+			if err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				resp.Body.Close()
+				pw.CloseWithError(fmt.Errorf("unexpected status code: %d", resp.StatusCode))
+				return
+			}
+
+			_, err = io.Copy(pw, resp.Body)
+			if err != nil {
+				resp.Body.Close()
+				pw.CloseWithError(err)
+				return
+			}
+
+			resp.Body.Close()
+		}
+	}()
+
+	return pr, nil
 }
 
 func makeRequest(ctx context.Context, requestMethod string, requestURL string, params map[string]string) (*http.Request, error) {

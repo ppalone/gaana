@@ -153,3 +153,15 @@ func Test_StreamURLs(t *testing.T) {
 		assert.True(t, strings.HasPrefix(detail.PreviewURL.URL, "https://"))
 	}
 }
+
+func Test_GetStream(t *testing.T) {
+	// TODO: Better tests
+	c := gaana.NewClient(nil)
+
+	song, err := c.GetSongDetailByTrackId(context.Background(), 1783362)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, song)
+
+	_, err = c.GetStream(context.Background(), song.StreamURLs[0])
+	assert.NoError(t, err)
+}

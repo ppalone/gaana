@@ -221,6 +221,44 @@ func (c *Client) GetStream(ctx context.Context, stream Stream) (io.ReadCloser, e
 	return pr, nil
 }
 
+func (c *Client) GetStreamByTrackId(ctx context.Context, id int, opts ...StreamOption) (io.ReadCloser, error) {
+	options := defaultStreamOptions()
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	detail, err := c.GetSongDetailByTrackId(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(detail.StreamURLs) == 0 {
+		return nil, fmt.Errorf("no stream URLs available")
+	}
+
+	var stream Stream
+	if options.quality == "" {
+		stream = detail.StreamURLs[0]
+	} else {
+		s, ok := findStream(detail.StreamURLs, options.quality)
+		if !ok {
+			return nil, fmt.Errorf("stream not found for quality: %s", options.quality)
+		}
+		stream = s
+	}
+
+	return c.GetStream(ctx, stream)
+}
+
+func findStream(streams []Stream, quality Quality) (Stream, bool) {
+	for _, s := range streams {
+		if s.Quality == string(quality) {
+			return s, true
+		}
+	}
+	return Stream{}, false
+}
+
 func makeRequest(ctx context.Context, requestMethod string, requestURL string, params map[string]string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, requestMethod, requestURL, nil)
 	if err != nil {

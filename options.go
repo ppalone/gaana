@@ -36,3 +36,30 @@ func (opts *searchOptions) build() map[string]string {
 
 	return m
 }
+
+type Quality string
+
+const (
+	QualityLow    Quality = "low"
+	QualityMedium Quality = "medium"
+	QualityHigh   Quality = "high"
+	QualityAuto   Quality = "auto"
+)
+
+type streamOptions struct {
+	quality Quality
+}
+
+type StreamOption func(opts *streamOptions)
+
+func defaultStreamOptions() *streamOptions {
+	return &streamOptions{
+		quality: "", // if kept empty, whichever is available will be used
+	}
+}
+
+func WithStreamQuality(quality Quality) StreamOption {
+	return func(opts *streamOptions) {
+		opts.quality = quality
+	}
+}

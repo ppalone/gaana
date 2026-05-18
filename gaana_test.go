@@ -165,3 +165,24 @@ func Test_GetStream(t *testing.T) {
 	_, err = c.GetStream(context.Background(), song.StreamURLs[0])
 	assert.NoError(t, err)
 }
+
+func Test_GetStreamByTrackId(t *testing.T) {
+	c := gaana.NewClient(nil)
+
+	t.Run("without any options", func(t *testing.T) {
+		_, err := c.GetStreamByTrackId(context.Background(), 1783362)
+		assert.NoError(t, err)
+	})
+
+	t.Run("with available quality", func(t *testing.T) {
+		_, err := c.GetStreamByTrackId(context.Background(), 1783362, gaana.WithStreamQuality(gaana.QualityHigh))
+		assert.NoError(t, err)
+	})
+
+	t.Run("with unavailable quality", func(t *testing.T) {
+		// "low" quality is not available for most of songs
+		_, err := c.GetStreamByTrackId(context.Background(), 1783362, gaana.WithStreamQuality(gaana.QualityLow))
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "stream not found")
+	})
+}

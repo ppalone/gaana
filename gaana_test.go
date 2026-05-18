@@ -148,5 +148,8 @@ func Test_StreamURLs(t *testing.T) {
 			assert.True(t, strings.HasPrefix(stream.URL, "https://"))
 			assert.True(t, strings.Contains(stream.URL, ".m3u8"))
 		}
+
+		assert.NotEmpty(t, detail.PreviewURL.URL)
+		assert.True(t, strings.HasPrefix(detail.PreviewURL.URL, "https://"))
 	}
 }

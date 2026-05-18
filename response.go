@@ -185,6 +185,10 @@ func (res *songDetailAPIResponse) toSongDetail() (SongDetail, error) {
 	}
 
 	// ignore error
+	preview, _ := decAESCBCPKCS(data.PreviewURL.Message)
+	previewURL := Stream{URL: preview, ExpiryTime: time.Unix(int64(data.PreviewURL.ExpiryTime), 0)}
+
+	// ignore error
 	releaseDate, _ := time.Parse("2006-01-02", data.ReleaseDate)
 
 	return SongDetail{
@@ -204,5 +208,6 @@ func (res *songDetailAPIResponse) toSongDetail() (SongDetail, error) {
 		Genres:       genres,
 		Tags:         tags,
 		StreamURLs:   streamURLs,
+		PreviewURL:   previewURL,
 	}, nil
 }
